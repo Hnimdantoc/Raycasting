@@ -1,9 +1,10 @@
 #include <iostream>
 #include <math.h>
+#include <iomanip>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 
-#define PI 3.1415926535
+#define PI 3.1415926535f
 
 using namespace std;
 
@@ -11,10 +12,11 @@ SDL_Event event;
 SDL_Window* window;
 SDL_Renderer* renderer;
 SDL_Surface* surface;
-float pdX, pdY, pA;
+double pdX = 0, pdY = 0, pA = 0, px = 100, py = 100;
+SDL_Rect player = {100, 100, 10, 10};
 bool RunState;
 int vel = 10;
-int mapX = 8, mapY = 9, mapS = 64;
+int mapX = 8, mapY = 8, mapS = 64;
 SDL_Rect tileRect = {0, 0, 64, 64};
 int map[] = 
 {
@@ -28,59 +30,47 @@ int map[] =
     1,1,1,1,1,1,1,1,
 };
 
-class Player{
-    public:
-        SDL_Rect dest = {100, 100, 10, 10};
-};
-
-Player player;
-
 void DrawRay3d()
 {
     int r, mx, my, mp, dof;
-    float rx, ry, ra, xo, yo;
+    double rx, ry, ra, xo, yo;
     ra = pA;
-    for(r = 0; r > -1; r--)
-    {
+    for (r = 0; r < 1; r++){
+        // Check horizontal lines
         dof = 0;
-        float aTan = -1/tan(ra);
-        if(ra>PI)
-        {
-            ry = (((int)pdY/64)*64)-0.0001;
-            rx = (pdY-ry)*aTan+pdX;
-            yo = -64;
-            xo= -yo*aTan;
-        }
-        if(ra<PI)
-        {
-            ry = (((int)pdY/64)*64)+64;
-            rx = (pdY-ry)*aTan+pdX;
-            yo = 64;
-            xo= -yo*aTan;
-        }
-        if(ra==0 || ra==PI)
-        {
-            rx = pdX;
-            ry = pdY;
+        double aTan = -1.0f/tan(ra);
+        if (ra == 0 || ra == PI) {
+            rx = px;
+            ry = py;
             dof = 8;
         }
-        while(dof<8)
-        {
-            mx = (int)(rx)/64;
-            my = (int)(ry)/64;
-            mp = my*mapX+mx;
-            if(mp<mapX*mapY && map[mp]==1)
-            {
-                dof = 8;
-            }
-            else{
+        //Look up
+        else if (ra > PI) {
+            ry = (int)py/64*64 - 0.0001f;
+            rx = (py - ry)*aTan + px;
+            yo = -64;
+            xo = -yo*aTan;
+        }
+        //Look down
+        else if (ra < PI) {
+            ry = (int)py/64*64 + 64;
+            rx = (py - ry)*aTan + px;
+            yo = 64;
+            xo = -yo*aTan;
+        }
+        while (dof < 8){
+            mx = (int)rx / 64;
+            my = (int)ry / 64;
+            mp = my * mapX + mx;
+            if (mp >= 0 && mp < mapX*mapY && map[mp] == 1) dof = 8;
+            else {
                 rx += xo;
                 ry += yo;
-                dof +=1;
+                dof++;
             }
         }
-        SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
-        SDL_RenderDrawLine(renderer, player.dest.x+player.dest.w/2+pdX*5, player.dest.y+player.dest.h/2+pdY*5, rx, ry);
+        SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+        SDL_RenderDrawLine(renderer, px, py, rx, ry);
     }
 }
 
@@ -96,7 +86,6 @@ void Drawmap()
                 tileRect.x = x*64;
                 tileRect.y = y*64;
                 SDL_RenderFillRect(renderer, &tileRect);
-
                 SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
                 SDL_RenderDrawLine(renderer, x*64, y*64, x*64 + 64, y*64);
                 SDL_RenderDrawLine(renderer, x*64+64, y*64, x*64 + 64, y*64 + 64);
@@ -148,36 +137,42 @@ int main(int argc, char* args[]){
         {
             switch (event.key.keysym.sym){
                 case SDLK_UP:
-                    player.dest.y+=pdY;
-                    player.dest.x+=pdX;
+                    py+=pdY;
+                    px+=pdX;
                     break;
                 case SDLK_DOWN:
-                    player.dest.y-=pdY;
-                    player.dest.x-=pdX;
+                    py-=pdY;
+                    px-=pdX;
                     break;
                 case SDLK_LEFT:
-                    pA-=0.1;
-                    if(pA<0) pA+=2*PI;
-                    pdX=cos(pA)*vel; pdY = sin(pA)*vel;
+                    pA -= 0.1f;
+                    if(pA < 0) pA += 2*PI;
+                    pdX = cos(pA) * vel;
+                    pdY = sin(pA) * vel;
                     break;
                 case SDLK_RIGHT:
-                    pA+=0.1;
-                    if(pA>2*PI) pA-=2*PI;
-                    pdX=cos(pA)*vel; pdY = sin(pA)*vel;
+                    pA += 0.1f;
+                    if(pA >= 2.0f*PI) pA -= 2.0f*PI;
+                    pdX = cos(pA)*vel;
+                    pdY = sin(pA)*vel;
                     break;
             }
         }
-
+        player.x = (int)px;
+        player.y = (int)py;
         //Render
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
-        
         Drawmap();
         DrawRay3d();
+        SDL_Rect temp = player;
+        temp.x -= player.w/2;
+        temp.y -= player.h/2;
 
         SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-        SDL_RenderFillRect(renderer, &player.dest);
-        SDL_RenderDrawLine(renderer, player.dest.x+player.dest.w/2, player.dest.y+player.dest.h/2, player.dest.x+player.dest.w/2+pdX*5, player.dest.y+player.dest.h/2+pdY*5);
+        SDL_RenderFillRect(renderer, &temp);
+        SDL_RenderDrawLine(renderer, px, py, px + 30*cos(pA), py + 30*sin(pA));
+
         SDL_RenderPresent(renderer);
     }
 
